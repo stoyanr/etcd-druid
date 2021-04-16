@@ -86,6 +86,9 @@ type BackupSpec struct {
 	// Store defines the specification of object store provider for storing backups.
 	// +optional
 	Store *StoreSpec `json:"store,omitempty"`
+	// SourceStore defines the specification of the source object store provider for copying backups.
+	// +optional
+	SourceStore *StoreSpec `json:"sourceStore,omitempty"`
 	// Resources defines the compute Resources required by backup-restore container.
 	// More info: https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/
 	// +optional

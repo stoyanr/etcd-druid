@@ -925,6 +925,10 @@ func (r *EtcdReconciler) getMapFromEtcd(etcd *druidv1alpha1.Etcd) (map[string]in
 		backupValues["image"] = etcd.Spec.Backup.Image
 	}
 
+	if operation, ok := etcd.Annotations[v1beta1constants.GardenerOperation]; ok && operation == v1beta1constants.GardenerOperationRestore {
+		backupValues["copyBackups"] = true
+	}
+
 	volumeClaimTemplateName := etcd.Name
 	if etcd.Spec.VolumeClaimTemplate != nil && len(*etcd.Spec.VolumeClaimTemplate) != 0 {
 		volumeClaimTemplateName = *etcd.Spec.VolumeClaimTemplate
@@ -964,25 +968,39 @@ func (r *EtcdReconciler) getMapFromEtcd(etcd *druidv1alpha1.Etcd) (map[string]in
 	}
 
 	if etcd.Spec.Backup.Store != nil {
-		storageProvider, err := utils.StorageProviderFromInfraProvider(etcd.Spec.Backup.Store.Provider)
+		storeValues, err := getStoreValues(etcd.Spec.Backup.Store)
 		if err != nil {
 			return nil, err
 		}
-		storeValues := map[string]interface{}{
-			"storePrefix":     etcd.Spec.Backup.Store.Prefix,
-			"storageProvider": storageProvider,
-		}
-		if etcd.Spec.Backup.Store.Container != nil {
-			storeValues["storageContainer"] = etcd.Spec.Backup.Store.Container
-		}
-		if etcd.Spec.Backup.Store.SecretRef != nil {
-			storeValues["storeSecret"] = etcd.Spec.Backup.Store.SecretRef.Name
-		}
-
 		values["store"] = storeValues
+	}
+	if etcd.Spec.Backup.SourceStore != nil {
+		sourceStoreValues, err := getStoreValues(etcd.Spec.Backup.SourceStore)
+		if err != nil {
+			return nil, err
+		}
+		values["sourceStore"] = sourceStoreValues
 	}
 
 	return values, nil
+}
+
+func getStoreValues(store *druidv1alpha1.StoreSpec) (map[string]interface{}, error) {
+	storageProvider, err := utils.StorageProviderFromInfraProvider(store.Provider)
+	if err != nil {
+		return nil, err
+	}
+	storeValues := map[string]interface{}{
+		"storePrefix":     store.Prefix,
+		"storageProvider": storageProvider,
+	}
+	if store.Container != nil {
+		storeValues["storageContainer"] = store.Container
+	}
+	if store.SecretRef != nil {
+		storeValues["storeSecret"] = store.SecretRef.Name
+	}
+	return storeValues, nil
 }
 
 func (r *EtcdReconciler) addFinalizersToDependantSecrets(ctx context.Context, etcd *druidv1alpha1.Etcd) error {

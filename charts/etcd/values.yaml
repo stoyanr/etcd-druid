@@ -45,9 +45,10 @@ backup:
     requests:
       cpu: 50m
       memory: 128Mi
-  # compression:
-  #   enabled: true
-  #   policy: "gzip"
+  #compression:
+  #  enabled: true
+  #  policy: "gzip"
+  #copyBackups: true
 
 volumeClaimTemplateName: test
 storageClass: ""
@@ -57,3 +58,7 @@ store:
   storageProvider: ""
   storePrefix: ""
   storageContainer: ""
+#sourceStore:
+#  storageProvider: ""
+#  storePrefix: ""
+#  storageContainer: ""
