@@ -110,6 +110,9 @@ spec:
         command:
         - etcdbrctl
         - server
+{{- if .Values.backup.copyBackups }}
+        - --copy-backups
+{{- end }}
 {{- if .Values.etcd.defragmentationSchedule }}
         - --defragmentation-schedule={{ .Values.etcd.defragmentationSchedule }}
 {{- end }}
@@ -126,6 +129,11 @@ spec:
 {{- end }}
 {{- if .Values.store.storePrefix }}
         - --store-prefix={{ .Values.store.storePrefix }}
+{{- end }}
+{{- if .Values.sourceStore }}
+{{- if .Values.sourceStore.storePrefix }}
+        - --source-store-prefix={{ .Values.sourceStore.storePrefix }}
+{{- end }}
 {{- end }}
 {{- if .Values.backup.etcdQuotaBytes }}
         - --embedded-etcd-quota-bytes={{ int $.Values.backup.etcdQuotaBytes }}
@@ -179,6 +187,10 @@ spec:
         env:
         - name: STORAGE_CONTAINER
           value: {{ .Values.store.storageContainer }}
+{{- if .Values.sourceStore }}
+        - name: SOURCE_STORAGE_CONTAINER
+          value: {{ .Values.sourceStore.storageContainer }}
+{{- end }}
 {{- if eq .Values.store.storageProvider "S3" }}
         - name: "AWS_REGION"
           valueFrom:
@@ -209,6 +221,10 @@ spec:
 {{- else if eq .Values.store.storageProvider "GCS" }}
         - name: "GOOGLE_APPLICATION_CREDENTIALS"
           value: "/root/.gcp/serviceaccount.json"
+{{- if .Values.sourceStore }}
+        - name: SOURCE_GOOGLE_APPLICATION_CREDENTIALS
+          value: "/root/.source-gcp/serviceaccount.json"
+{{- end }}
 {{- else if eq .Values.store.storageProvider "Swift" }}
         - name: "OS_AUTH_URL"
           valueFrom:
@@ -317,6 +333,10 @@ spec:
 {{- if eq .Values.store.storageProvider "GCS" }}
         - name: etcd-backup
           mountPath: "/root/.gcp/"
+{{- if .Values.sourceStore }}
+        - name: source-etcd-backup
+          mountPath: "/root/.source-gcp/"
+{{- end }}
 {{- end }}
       volumes:
       - name: etcd-bootstrap-sh
@@ -348,6 +368,11 @@ spec:
       - name: etcd-backup
         secret:
           secretName: {{ .Values.store.storeSecret }}
+{{- if .Values.sourceStore }}
+      - name: source-etcd-backup
+        secret:
+          secretName: {{ .Values.sourceStore.storeSecret }}
+{{- end }}
 {{- end }}
   volumeClaimTemplates:
   - metadata:
