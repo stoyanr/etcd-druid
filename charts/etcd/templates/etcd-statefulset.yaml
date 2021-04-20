@@ -46,6 +46,7 @@ spec:
       priorityClassName: {{ .Values.priorityClassName }}
 {{- end }}
       containers:
+{{- if (not .Values.sourceStore) }}
       - name: etcd
         image: {{ .Values.etcd.image }}
         imagePullPolicy: {{ .Values.etcd.pullPolicy }}
@@ -106,11 +107,12 @@ spec:
         - name: etcd-client-tls
           mountPath: /var/etcd/ssl/client
 {{- end }}
+{{- end }}
       - name: backup-restore
         command:
         - etcdbrctl
         - server
-{{- if .Values.backup.copyBackups }}
+{{- if .Values.sourceStore }}
         - --copy-backups
 {{- end }}
 {{- if .Values.etcd.defragmentationSchedule }}
@@ -178,6 +180,17 @@ spec:
         - --snapstore-temp-directory={{ .Values.backup.snapstoreTempDir }}
         image: {{ .Values.backup.image }}
         imagePullPolicy: {{ .Values.backup.pullPolicy }}
+{{- if .Values.sourceStore }}
+        readinessProbe:
+          httpGet:
+{{- if .Values.etcd.enableTLS }}
+            scheme: HTTPS
+{{- end }}
+            path: /healthz
+            port: {{ .Values.backup.port }}
+          initialDelaySeconds: 15
+          periodSeconds: 5
+{{- end }}
         ports:
         - containerPort: {{ .Values.backup.port }}
           name: server

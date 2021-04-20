@@ -87,6 +87,8 @@ const (
 var (
 	// DefaultTimeout is the default timeout for retry operations.
 	DefaultTimeout = 1 * time.Minute
+	// CopyBackupsTimeout is the timeout for retry operations when copying backups.
+	CopyBackupsTimeout = 30 * time.Minute
 )
 
 // EtcdReconciler reconciles a Etcd object
@@ -622,7 +624,7 @@ func (r *EtcdReconciler) reconcileStatefulSet(ctx context.Context, cm *corev1.Co
 			}
 		}
 
-		return r.waitUntilStatefulSetReady(ctx, ss)
+		return r.waitUntilStatefulSetReady(ctx, ss, values)
 	}
 
 	// Required statefulset doesn't exist. Create new
@@ -643,7 +645,7 @@ func (r *EtcdReconciler) reconcileStatefulSet(ctx context.Context, cm *corev1.Co
 		return nil, err
 	}
 
-	return r.waitUntilStatefulSetReady(ctx, ss)
+	return r.waitUntilStatefulSetReady(ctx, ss, values)
 }
 
 func getContainerMapFromPodTemplateSpec(spec v1.PodSpec) map[string]v1.Container {
@@ -873,7 +875,7 @@ func (r *EtcdReconciler) getMapFromEtcd(etcd *druidv1alpha1.Etcd) (map[string]in
 	}
 
 	backupValues := map[string]interface{}{
-		"pullPolicy":               corev1.PullIfNotPresent,
+		"pullPolicy":               corev1.PullAlways,
 		"etcdQuotaBytes":           quota,
 		"etcdConnectionTimeout":    "5m",
 		"snapstoreTempDir":         "/var/etcd/data/temp",
@@ -923,10 +925,6 @@ func (r *EtcdReconciler) getMapFromEtcd(etcd *druidv1alpha1.Etcd) (map[string]in
 		backupValues["image"] = val.String()
 	} else {
 		backupValues["image"] = etcd.Spec.Backup.Image
-	}
-
-	if operation, ok := etcd.Annotations[v1beta1constants.GardenerOperation]; ok && operation == v1beta1constants.GardenerOperationRestore {
-		backupValues["copyBackups"] = true
 	}
 
 	volumeClaimTemplateName := etcd.Name
@@ -1150,12 +1148,17 @@ func (r *EtcdReconciler) updateEtcdStatus(ctx context.Context, etcd *druidv1alph
 	return r.removeOperationAnnotation(ctx, etcd)
 }
 
-func (r *EtcdReconciler) waitUntilStatefulSetReady(ctx context.Context, sts *appsv1.StatefulSet) (*appsv1.StatefulSet, error) {
+func (r *EtcdReconciler) waitUntilStatefulSetReady(ctx context.Context, sts *appsv1.StatefulSet, values map[string]interface{}) (*appsv1.StatefulSet, error) {
 	var (
 		ss = &appsv1.StatefulSet{}
 	)
 
-	err := gardenerretry.UntilTimeout(ctx, DefaultInterval, DefaultTimeout, func(ctx context.Context) (bool, error) {
+	timeout := DefaultTimeout
+	if _, ok := values["sourceStore"]; ok {
+		timeout = CopyBackupsTimeout
+	}
+
+	err := gardenerretry.UntilTimeout(ctx, DefaultInterval, timeout, func(ctx context.Context) (bool, error) {
 		if err := r.Get(ctx, types.NamespacedName{Name: sts.Name, Namespace: sts.Namespace}, ss); err != nil {
 			if apierrors.IsNotFound(err) {
 				return gardenerretry.MinorError(err)
