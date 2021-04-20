@@ -48,7 +48,6 @@ backup:
   #compression:
   #  enabled: true
   #  policy: "gzip"
-  #copyBackups: true
 
 volumeClaimTemplateName: test
 storageClass: ""
