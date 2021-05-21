@@ -45,6 +45,7 @@ spec:
 {{- if .Values.priorityClassName }}
       priorityClassName: {{ .Values.priorityClassName }}
 {{- end }}
+      shareProcessNamespace: true
       containers:
 {{- if (not .Values.sourceStore) }}
       - name: etcd
@@ -351,6 +352,10 @@ spec:
           mountPath: "/root/.source-gcp/"
 {{- end }}
 {{- end }}
+        securityContext:
+          capabilities:
+            add:
+            - SYS_PTRACE
       volumes:
       - name: etcd-bootstrap-sh
         configMap:
